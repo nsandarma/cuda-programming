@@ -1,0 +1,2 @@
+# Requirements
+  - CUDA Toolkit & Numpy
