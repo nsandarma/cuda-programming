@@ -1,5 +1,5 @@
 # Requirements
-  - CUDA Toolkit & Numpy
+  - [CUDA Toolkit](https://docs.nvidia.com/cuda/index.html) & [Numpy](https://pypi.org/project/numpy/)
 
 # Examples
 
