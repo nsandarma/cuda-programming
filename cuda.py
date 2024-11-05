@@ -105,6 +105,10 @@ CUdeviceptr = ctypes.c_uint64
 
 size_t = ctypes.c_uint64
 
+
+class struct_CUstream_st(Structure): pass
+CUstream = ctypes.POINTER(struct_CUstream_st)
+
 class struct_CUctx_st(Structure):pass
 CUcontext = ctypes.POINTER(struct_CUctx_st)
 
@@ -185,6 +189,12 @@ try:
 except AttributeError: pass
 
 try:
+  cuModuleUnload = _libraries['libcuda.so'].cuModuleUnload
+  cuModuleUnload.restype = CUresult
+  cuModuleUnload.argtypes = [CUmodule]
+except AttributeError: pass
+
+try:
   cuModuleGetFunction = _libraries['libcuda.so'].cuModuleGetFunction
   cuModuleGetFunction.restype = CUresult
   cuModuleGetFunction.argtypes = [ctypes.POINTER(ctypes.POINTER(struct_CUfunc_st)), CUmodule, ctypes.POINTER(ctypes.c_char)]
@@ -223,8 +233,28 @@ except AttributeError: pass
 try:
   cuLaunchKernel = _libraries['libcuda.so'].cuLaunchKernel
   cuLaunchKernel.restype = CUresult
-  cuLaunchKernel.argtypes = [CUfunction, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, CUstream, ctypes.POINTER(ctypes.POINTER(None)), ctypes.POINTER(ctypes.POINTER(None))]
+  cuLaunchKernel.argtypes = [CUfunction, 
+                             ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, # gridDimX, gridDimY, gridDimz
+                             ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, # blockDimX, blockDimY, blockDimZ
+                             ctypes.c_uint32, # sharedMemBytes
+                             CUstream, 
+                             ctypes.POINTER(ctypes.POINTER(None)), # kernelParams -> LP_c_void_p
+                             ctypes.POINTER(ctypes.POINTER(None))] # Extra
 except AttributeError: pass
+
+try:
+  cuStreamCreate = _libraries['libcuda.so'].cuStreamCreate
+  cuStreamCreate.restype = CUresult
+  cuStreamCreate.argtypes = [ctypes.POINTER(ctypes.POINTER(struct_CUstream_st)),
+                            ctypes.c_uint32]
+except AttributeError: pass
+
+try:
+    cuStreamDestroy_v2 = _libraries['libcuda.so'].cuStreamDestroy_v2
+    cuStreamDestroy_v2.restype = CUresult
+    cuStreamDestroy_v2.argtypes = [CUstream]
+except AttributeError: pass
+
 
 mod_name = "cuda"
 
@@ -235,8 +265,8 @@ __all__ =\
   "CUdeviceptr","size_t","CUcontext","CUmodule","CUfunction",
   "CUstream","cuInit","cuDeviceGet","cuDeviceGetCount","cuDeviceGetAttribute",
   "cuDeviceGetName","cuDeviceTotalMem_v2","cuCtxCreate_v2","cuCtxDestroy_v2",
-  "cuCtxSynchronize","cuModuleLoadData","cuModuleGetFunction","cuMemGetInfo_v2",
+  "cuCtxSynchronize","cuModuleLoadData","cuModuleUnload","cuModuleGetFunction","cuMemGetInfo_v2",
   "cuMemAlloc_v2","cuMemFree_v2","cuMemcpyHtoD_v2","cuMemcpyDtoH_v2","mod_name",
-  "cuLaunchKernel"
+  "cuLaunchKernel","cuStreamCreate","cuStreamDestroy_v2"
 
 ]

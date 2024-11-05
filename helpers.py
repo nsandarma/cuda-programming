@@ -1,4 +1,5 @@
 import ctypes
+import numpy as np
 
 def check(call,status) -> None:
   err_enum = call.cudaError_enum__enumvalues if call.mod_name == "cuda" else call.nvrtcResult_enum
@@ -29,14 +30,69 @@ def get_device_arch(cuda,device=0):
   return f"compute_{major.value}{minor.value}"
 
 
-def prepare_kernel_params(d_a, d_b, d_c):
-  # Membuat array dari pointer memori GPU
-  params_array = (ctypes.c_void_p * 3)(
-      ctypes.cast(d_a, ctypes.c_void_p),
-      ctypes.cast(d_b, ctypes.c_void_p),
-      ctypes.cast(d_c, ctypes.c_void_p)
-  )
+def get_grid_dim(n,dim= 1,threadsPerBlock=256):
+  bd : list[int,int,int] = [1,1,1] # block dim
+  td : list[int,int,int] = [threadsPerBlock,1,1] # thread dim
+  numBlocks = int((n + threadsPerBlock - 1) / threadsPerBlock)
+  if dim == 1:
+    bd[0] = numBlocks
+    return bd,td
+  elif dim == 2:
+    numBlocks = int(numBlocks ** 0.5)
+    threadsPerBlock = int(threadsPerBlock ** 0.5)
+    bd[0] = numBlocks
+    bd[1] = numBlocks
+    td[0] = threadsPerBlock
+    td[1] = threadsPerBlock
+    return bd,td
+  else:
+    numBlocks = int(numBlocks ** (1/3))
+    threadsPerBlock = int(threadsPerBlock ** (1/3))
+    bd = [numBlocks for i in range(3)]
+    td = [threadsPerBlock for i in range(3)]
+    return bd,td
 
-  # Mengkonversi array menjadi pointer ke void
-  kernelParams = ctypes.cast(params_array, ctypes.POINTER(ctypes.c_void_p))
-  return kernelParams
+def prepare_kernel_params(*args):
+  # Mengonversi setiap parameter menjadi `c_void_p` dan menyimpannya dalam array
+  params_array = (ctypes.c_void_p * len(args))\
+  (*(ctypes.cast(arg, ctypes.c_void_p) for arg in args))
+  # Mengembalikan sebagai `ctypes.POINTER(ctypes.POINTER(None))`
+  return ctypes.cast(params_array, ctypes.POINTER(ctypes.POINTER(None)))
+
+def view_kernel_params(params,n):
+  # for i in range(n):
+  value = ctypes.cast(params[3], ctypes.POINTER(ctypes.c_int))
+  #   print(value)
+
+def ctype_to_c_string(ctype):
+  type_name = ctype.__name__
+  # Dictionary mapping ctypes to C type strings
+  type_mapping = {
+      'c_int': 'int',
+      'c_float': 'float',
+      'c_double': 'double',
+      'c_char': 'char',
+      'c_char_p': 'char*',
+      'c_void_p': 'void*',
+      'c_short': 'short',
+      'c_long': 'long',
+      'c_longlong': 'long long',
+      'c_ushort': 'unsigned short',
+      'c_uint': 'unsigned int',
+      'c_ulong': 'unsigned long',
+      'c_ulonglong': 'unsigned long long',
+      'c_bool': 'bool',
+  }
+  return type_mapping.get(type_name, "unknown type")
+
+
+
+
+if __name__ == "__main__":
+  import cuda
+  cuda.cuInit(0)
+  device_info(cuda)
+
+
+
+
