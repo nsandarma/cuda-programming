@@ -4,58 +4,6 @@ from src import nvrtc
 from src.helpers import check
 
 
-def template1D(op:str,name:str) -> str:
-  return f"""
-  extern "C" __global__ 
-    void {name}(int *a, int *b, int *c) {{
-      int idx = (blockDim.x * blockIdx.x) + threadIdx.x;
-      c[idx] = a[idx] {op} b[idx];
-
-  }}
-  """
-def _template1D(op:str,name:str,dtypes:list) -> str:
-  assert len(dtypes) == 3, "error"
-  return f"""
-  extern "C" __global__ 
-    void {name}({dtypes[0]} *a, {dtypes[1]} *b, {dtypes[2]} *c,int N) {{
-      int idx = (blockDim.x * blockIdx.x) + threadIdx.x;
-      if (idx < N){{
-        c[idx] = a[idx] {op} b[idx];
-      }}
-
-  }}
-  """
-
-
-def templateMatmul(op,name, dtypes:list) :
-  assert len(dtypes) == 3, "dtypes <= 3"
-  return f"""
-  extern "C" __global__ void {name}({dtypes[0]}* A, {dtypes[1]}* B, {dtypes[2]}* C, int A_rows, int A_cols, int B_cols) {{
-      int row = blockIdx.y * blockDim.y + threadIdx.y;
-      int col = blockIdx.x * blockDim.x + threadIdx.x;
-
-      if (row < A_rows && col < B_cols) {{
-          float Cvalue = 0.0;
-          for (int e = 0; e < A_cols; ++e) {{
-              Cvalue += A[row * A_cols + e] * B[e * B_cols + col];
-          }}
-          C[row * B_cols + col] = Cvalue;
-      }}
-  }}
-  """
-
-
-def codegen(op:str,name:str,dtypes:str) -> str: 
-  prefix = 'extern "C" __global__ void '
-  open_body = "{ "
-  close_body = "} "
-  args = gen_args_1D(dtypes)
-  dim = gen_dim_1D
-  ops = gen_ops_1D("+")
-
-  return f"{prefix}{name}{args}{open_body}{dim}{ops}{close_body}"
-
-
 class PTX:
   prefix = 'extern "C" __global__ void '
   open_params = "( "
@@ -65,8 +13,6 @@ class PTX:
 
   gen_dim_1D = "int idx = (blockDim.x * blockIdx.x) + threadIdx.x; "
   gen_dim_2D = "int row = blockIdx.y * blockDim.y + threadIdx.y; int col = blockIdx.x * blockDim.x + threadIdx.x; "
-
-
 
   gen_ops_1D = lambda op: f"if (idx < N){{ c[idx] = a[idx] {op} b[idx]; }} "
   gen_ops_2D = lambda op: f"if (row < rows && col < cols) {{ c[row * cols + col] = a[row * cols + col] {op} b[row * cols + col]; }} "
@@ -82,7 +28,7 @@ class PTX:
 
 
   def __init__(self,op,dtypes,dim:int,arch:str="compute_50"):
-    assert op in ["*","+","/","//","-","@"], "op is no support !"
+    assert op in ["*","+","/","-","@"], "op is not support !"
     assert len(dtypes) == 3, "dtypes < 3"
     name = "vector_func" if dim == 1 else "matrix_func"
     
@@ -100,7 +46,7 @@ class PTX:
         ops = PTX.gen_ops_2D(op)
 
     else:
-      raise ValueError("dim > 2")
+      raise ValueError("dim > 2 is not support !")
     codegen = f"{PTX.prefix}{name}{args}{PTX.open_body}{dim}{ops}{PTX.close_body}"
     self.args = args
     self.ops = ops
@@ -118,7 +64,6 @@ class PTX:
     if self.is_rendered:
       return self.ptx.value.decode()
     return None
-  
   
   def render(self):
     func_name = self.name.encode()
@@ -155,27 +100,8 @@ class PTX:
     print("success!")
       
 
-matmul = """
-
-extern "C" __global__ void matmulKernel(float* A, float* B, float* C, int A_rows, int A_cols, int B_cols) {
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (row < A_rows && col < B_cols) {
-        float Cvalue = 0.0;
-        for (int e = 0; e < A_cols; ++e) {
-            Cvalue += A[row * A_cols + e] * B[e * B_cols + col];
-        }
-        C[row * B_cols + col] = Cvalue;
-    }
-}
-"""
-
-
 if __name__ == "__main__":
   dtypes = ["float","float","float"]
   ptx = PTX(op="//",dtypes=dtypes,dim=1).render()
   print(ptx.ops)
   print(ptx.args)
-
-
