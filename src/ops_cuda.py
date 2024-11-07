@@ -105,6 +105,7 @@ class CUDA:
 
 
   def __realize(self,other,op,d,arch="compute_50"):
+    self.__check(other,op)
     dtypes = [ndtype_to_c_string(self.dtype),ndtype_to_c_string(other.dtype),ndtype_to_c_string(d.dtype)]
     ptx = PTX(op,dtypes=dtypes,dim=d.ndim,arch=arch).render()
     kernel = _Kernel(ptx)
@@ -124,38 +125,38 @@ class CUDA:
   
   # MATH OPS
   def add(self,other):
-    self.__check(other,"+")
     d = np.zeros_like(self.data)
     self.__realize(other,"+",d)
     return d
   
   def sub(self,other):
-    self.__check(other,"-")
     d = np.zeros_like(self.data)
     self.__realize(other,"-",d)
     return d
   
   def mul(self,other):
-    self.__check(other,"*")
     d = np.zeros_like(self.data)
     self.__realize(other,"*",d)
     return d
   
+  def dot(self,other):
+    d = np.zeros_like(self.data)
+    self.__realize(other,"*",d)
+    return np.sum(d)
+  
   def matmul(self,other):
-    self.__check(other,"@")
+    if self.ndim == 1: return self.dot(other)
     d = np.zeros((self.shape[0],other.shape[1]),dtype=self.dtype)
     self.__realize(other,"@",d)
     return d
   
   def truediv(self,other):
-    self.__check(other,"/")
     d = np.zeros_like(self.data).astype(np.float32)
     other = other.astype(np.float32)
     self.__realize(other,"/",d)
     return d
 
   def floordiv(self,other):
-    self.__check(other,"/")
     d = np.zeros_like(self.data).astype(np.int32)
     self.__realize(other,"/",d)
     return d

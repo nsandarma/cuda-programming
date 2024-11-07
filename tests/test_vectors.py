@@ -38,6 +38,11 @@ class TestVectors(unittest.TestCase):
     r2 = self.x * self.y
     np.testing.assert_allclose(r1,r2)
 
+  def test_dot_product(self):
+    r1 = self.xc @ self.yc
+    r2 = self.x @ self.y
+    np.testing.assert_allclose(r1,r2)
+
 if __name__ == "__main__":
   unittest.main()
 
