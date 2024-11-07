@@ -1,6 +1,6 @@
 # reference : https://raw.githubusercontent.com/tinygrad/tinygrad/refs/heads/master/tinygrad/runtime/autogen/cuda.py
 import ctypes,ctypes.util
-from __struct import Structure
+from src.__struct import Structure
 
 cudaError_enum__enumvalues = {
   0: 'CUDA_SUCCESS',

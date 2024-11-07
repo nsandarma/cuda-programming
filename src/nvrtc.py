@@ -1,7 +1,7 @@
 # reference : https://raw.githubusercontent.com/tinygrad/tinygrad/refs/heads/master/tinygrad/runtime/autogen/nvrtc.py
 
 import ctypes,ctypes.util
-from __struct import Structure
+from src.__struct import Structure
 
 c__EA_nvrtcResult__enumvalues = {
   0: 'NVRTC_SUCCESS',
