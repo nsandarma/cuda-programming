@@ -1,7 +1,7 @@
 import numpy as np
 import src.cuda as cuda
 from src.ptx_renderer import PTX
-from src.helpers import check,prepare_kernel_params,grid_dim,ctype_to_c_string,ndtype_to_c_string
+from src.helpers import check,prepare_kernel_params,grid_dim,dtype_to_c_string
 from ctypes import *
 
 class _Kernel:
@@ -73,19 +73,6 @@ class CUDA:
   def __repr__(self):
     return str(self)
 
-  def __check(self,other,op:str):
-    assert type(other) == type(self), "type is not same !"
-    if self.ndim == 1 :
-      assert other.shape == self.shape, "shape is not same!"
-    elif self.ndim == 2:
-      if op !=  "@":
-        assert other.shape == self.shape, "shape is not same!"
-      cols = self.shape[1]
-      rows = other.shape[0]
-      assert cols == rows, "A.shape[1] != B.shape[0]"
-    else:
-      raise ArgumentError("dim not support !")
-
   @property 
   def dtype(self): return self.data.dtype
 
@@ -101,13 +88,42 @@ class CUDA:
   
   def numpy(self): return self.data
 
+  def reshape(self,*args):
+    return self.data.reshape(*args)
+
   def astype(self,dtype): return CUDA(self.data,dtype)
+
+  def __check(self,other,op:str):
+    # scalar or array
+    if isinstance(other,(int,float)):
+      dtype = np.float32 if isinstance(other,float) else np.int32
+      other = CUDA(np.array([other],dtype=dtype))
+      b_scalar = True
+    else:
+      assert type(other) == type(self), "operand dtype is not support !"
+      assert self.ndim <= 2, "ndim > 2 is not support"
+      if self.ndim == 1:
+        assert other.shape == self.shape, "shape is not same!"
+      if self.ndim == 2:
+        if op !=  "@":
+          assert other.shape == self.shape, "shape is not same!"
+        cols = self.shape[1]
+        rows = other.shape[0]
+        assert cols == rows, "A.shape[1] != B.shape[0]"
+
+      b_scalar = False
+
+    if op == "/":
+      other = other.astype(np.float32)
+
+    return other,b_scalar
 
 
   def __realize(self,other,op,d,arch="compute_50"):
-    self.__check(other,op)
-    dtypes = [ndtype_to_c_string(self.dtype),ndtype_to_c_string(other.dtype),ndtype_to_c_string(d.dtype)]
-    ptx = PTX(op,dtypes=dtypes,dim=d.ndim,arch=arch).render()
+    other,b_scalar = self.__check(other,op)
+      
+    dtypes = [dtype_to_c_string(self.dtype),dtype_to_c_string(other.dtype),dtype_to_c_string(d.dtype)]
+    ptx = PTX(op,dtypes=dtypes,dim=d.ndim,b_scalar = b_scalar,arch=arch).render()
     kernel = _Kernel(ptx)
     d_a,d_b,d_d = kernel.alloc_copy(self.data,other.data,d)
 
@@ -115,6 +131,7 @@ class CUDA:
       extra = [c_int(len(self))]
     else:
       n_rows,n_cols = self.shape
+      other = other.reshape(-1,1) if b_scalar else other
       extra = [c_int(n_rows),c_int(n_cols),c_int(other.shape[1])] if op == "@" else [c_int(n_rows),c_int(n_cols)]
 
     grid_block = grid_dim(self.shape,other.shape)
@@ -145,6 +162,7 @@ class CUDA:
     return np.sum(d)
   
   def matmul(self,other):
+    assert not isinstance(other,(int,float)), "Input operand 1 does not have enough dimensions (has 0, gufunc core with signature (n?,k),(k,m?)->(n?,m?) requires 1)"
     if self.ndim == 1: return self.dot(other)
     d = np.zeros((self.shape[0],other.shape[1]),dtype=self.dtype)
     self.__realize(other,"@",d)
@@ -152,7 +170,6 @@ class CUDA:
   
   def truediv(self,other):
     d = np.zeros_like(self.data).astype(np.float32)
-    other = other.astype(np.float32)
     self.__realize(other,"/",d)
     return d
 

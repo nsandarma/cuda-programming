@@ -43,6 +43,41 @@ class TestVectors(unittest.TestCase):
     r2 = self.x @ self.y
     np.testing.assert_allclose(r1,r2)
 
+class TestScalars(unittest.TestCase):
+  def setUp(self):
+    N = np.random.randint(100,1000)
+    x = np.random.randn(N) + 100
+    y = np.random.randint(1,100)
+    self.x = x
+    self.y = y
+    self.xc = CUDA(x)
+
+  def test_addition(self):
+    r1 = self.xc + self.y
+    r2 = self.x + self.y
+    np.testing.assert_allclose(r1,r2)
+
+  def test_subtraction(self):
+    r1 = self.xc - self.y
+    r2 = self.x - self.y
+    np.testing.assert_allclose(r1,r2)
+
+  def test_division(self):
+    r1 = self.xc / self.y
+    r2 = self.x / self.y
+    np.testing.assert_allclose(r1,r2)
+
+  def test_floordivision(self):
+    r1 = self.xc // self.y
+    r2 = self.x // self.y
+    np.testing.assert_allclose(r1,r2)
+
+  def test_multiplication(self):
+    r1 = self.xc * self.y
+    r2 = self.x * self.y
+    np.testing.assert_allclose(r1,r2)
+
+
 if __name__ == "__main__":
   unittest.main()
 

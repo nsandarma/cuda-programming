@@ -32,7 +32,7 @@ def get_device_arch(cuda,device=0):
 
 
 def grid_dim(a_shape:tuple,b_shape:tuple,threadsPerBlock=256):
-  assert len(a_shape) == len(b_shape), "a_shape != b_shape"
+  # assert len(a_shape) == len(b_shape), "a_shape != b_shape"
   if len(a_shape) == 2:
     threadsPerBlock = 16
     bd = [threadsPerBlock,threadsPerBlock,1]
@@ -91,6 +91,22 @@ def ndtype_to_c_string(dtype):
     np.void: 'void*'
   }
   return type_mapping.get(dtype.type, "unknown type")
+
+def dtype_to_c_string(dtype):
+  dtype = np.dtype(dtype)
+  type_mapping = {
+    np.int8: 'char',
+    np.int16: 'short',
+    np.int32: 'int',
+    np.int64: 'long',
+    np.uint8: 'unsigned char',
+    np.uint16: 'unsigned short',
+    np.uint32: 'unsigned int',
+    np.uint64: 'unsigned long',
+    np.float32: 'float',
+    np.float64: 'double',
+  }
+  return type_mapping.get(dtype.type, "unknown type") + "*"
 
 
 

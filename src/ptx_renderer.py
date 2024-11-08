@@ -14,28 +14,30 @@ class PTX:
   gen_dim_1D = "int idx = (blockDim.x * blockIdx.x) + threadIdx.x; "
   gen_dim_2D = "int row = blockIdx.y * blockDim.y + threadIdx.y; int col = blockIdx.x * blockDim.x + threadIdx.x; "
 
-  gen_ops_1D = lambda op: f"if (idx < N){{ c[idx] = a[idx] {op} b[idx]; }} "
-  gen_ops_2D = lambda op: f"if (row < rows && col < cols) {{ c[row * cols + col] = a[row * cols + col] {op} b[row * cols + col]; }} "
+  gen_ops_1D = lambda op,operand: f"if (idx < N){{ c[idx] = a[idx] {op} {operand}; }} "
+  gen_ops_2D = lambda op,operand: f"if (row < rows && col < cols) {{ c[row * cols + col] = a[row * cols + col] {op} {operand}; }} "
+  # gen_ops_2D = lambda op: f"if (row < rows && col < cols) {{ c[row * cols + col] = a[row * cols + col] {op} b }} "
 
   gen_ops_2D_matmul = "if (row < A_rows && col < B_cols) { float Cvalue = 0.0;\
-                                                           for (int e = 0; e < A_cols; ++e) \
-                                                           { Cvalue += a[row * A_cols + e] * b[e * B_cols + col]; } \
+                                                           for (int e = 0; e < A_cols; ++e) {\
+                                                           Cvalue += a[row * A_cols + e] * b[e * B_cols + col]; } \
                                                            c[row * B_cols + col] = Cvalue; } "
 
-  gen_args_1D = lambda dtypes :f"({dtypes[0]}* a, {dtypes[1]}* b, {dtypes[2]}* c,int N)"
-  gen_args_2D = lambda dtypes :f"({dtypes[0]}* a, {dtypes[1]}* b, {dtypes[2]}* c, int rows, int cols)"
-  gen_args_2D_matmul = lambda dtypes :f"({dtypes[0]}* a, {dtypes[1]}* b, {dtypes[2]}* c, int A_rows, int A_cols, int B_cols)"
+  gen_args_1D = lambda dtypes :f"({dtypes[0]} a, {dtypes[1]} b, {dtypes[2]} c,int N)"
+  gen_args_2D = lambda dtypes :f"({dtypes[0]} a, {dtypes[1]} b, {dtypes[2]} c, int rows, int cols)"
+  gen_args_2D_matmul = lambda dtypes :f"({dtypes[0]} a, {dtypes[1]} b, {dtypes[2]} c, int A_rows, int A_cols, int B_cols)"
 
 
-  def __init__(self,op,dtypes,dim:int,arch:str="compute_50"):
+  def __init__(self,op,dtypes,dim:int,b_scalar = False,arch:str="compute_50"):
     assert op in ["*","+","/","-","@"], "op is not support !"
     assert len(dtypes) == 3, "dtypes < 3"
     name = "vector_func" if dim == 1 else "matrix_func"
     
     if dim == 1:
+      operand = "*b" if b_scalar else "b[idx]"
       args = PTX.gen_args_1D(dtypes)
       dim = PTX.gen_dim_1D
-      ops = PTX.gen_ops_1D(op)
+      ops = PTX.gen_ops_1D(op,operand)
     elif dim == 2:
       dim = PTX.gen_dim_2D
       if op == "@":
@@ -43,7 +45,8 @@ class PTX:
         ops = PTX.gen_ops_2D_matmul
       else:
         args = PTX.gen_args_2D(dtypes)
-        ops = PTX.gen_ops_2D(op)
+        operand = "*b" if b_scalar else "b[row * cols + col]"
+        ops = PTX.gen_ops_2D(op,operand)
 
     else:
       raise ValueError("dim > 2 is not support !")
@@ -101,7 +104,7 @@ class PTX:
       
 
 if __name__ == "__main__":
-  dtypes = ["float","float","float"]
-  ptx = PTX(op="//",dtypes=dtypes,dim=1).render()
+  dtypes = ["float*","float*","float*"]
+  ptx = PTX(op="+",dtypes=dtypes,dim=1,b_scalar=False).render()
   print(ptx.ops)
   print(ptx.args)
